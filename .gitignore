@@ -1,0 +1,8 @@
+# ignore directories.
+
+.idea/
+
+# ignore files.
+
+*.bak
+
