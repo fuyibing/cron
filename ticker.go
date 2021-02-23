@@ -11,7 +11,7 @@ import (
 
 	"github.com/fuyibing/lock"
 
-	"github.com/fuyibing/log"
+	"github.com/fuyibing/log/v2"
 )
 
 // Ticker interface.
