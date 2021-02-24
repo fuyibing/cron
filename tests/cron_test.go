@@ -4,6 +4,7 @@
 package tests
 
 import (
+	"context"
 	"testing"
 
 	"github.com/fuyibing/log/v2"
@@ -13,8 +14,23 @@ import (
 
 func TestCrontab(t *testing.T) {
 	x := cron.NewCrontab()
-	x.AddTicker(cron.NewTicker("t1", "5s", nil), cron.NewTicker("t2", "1m", nil))
+	x.AddTicker(
+		cron.NewTicker("t1", "5s", ticker),
+		cron.NewTicker("t2", "10s", ticker),
+	)
 	if err := x.Start(); err != nil {
 		log.Errorf("error: %s.", err)
+		return
 	}
+
+	for {
+
+	}
+
 }
+
+func ticker(ctx context.Context, ticker cron.TickerInterface) error {
+	log.Infofc(ctx, "[ticker=%s] ticker callback.", ticker.Name())
+	return nil
+}
+

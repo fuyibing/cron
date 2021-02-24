@@ -18,15 +18,13 @@ func TestTicker(t *testing.T) {
 	x.SingleNode(true)
 	log.Infof("name: %s.", x.Name())
 	log.Infof("strategy: %s.", x.Strategy().Format())
-
-	x.Run(time.Now())
+	for i := 0; i <= 12; i++ {
+		x.Run(time.Now())
+		time.Sleep(time.Second)
+	}
 }
 
 func handler(ctx context.Context, ticker cron.TickerInterface) error {
-
-	for i := 0; i < 10; i++ {
-		log.Infofc(ctx, "[ticker=%s] ticker callback.", ticker.Name())
-		time.Sleep(time.Second)
-	}
+	log.Infofc(ctx, "[ticker=%s] ticker callback.", ticker.Name())
 	return nil
 }

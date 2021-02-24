@@ -4,12 +4,23 @@
 package cron
 
 import (
-	"errors"
 	"sync"
 	"time"
 
 	"github.com/fuyibing/log/v2"
 )
+
+// Crontab interface.
+type CrontabInterface interface {
+	// Add ticker.
+	AddTicker(...TickerInterface) CrontabInterface
+
+	// Delete specified ticker.
+	DelTicker(...TickerInterface) CrontabInterface
+
+	// Start crontab.
+	Start() error
+}
 
 // Crontab struct.
 type crontab struct {
@@ -27,10 +38,23 @@ func (o *crontab) AddTicker(ts ...TickerInterface) CrontabInterface {
 	return o
 }
 
+// Delete tickers.
+func (o *crontab) DelTicker(ts ...TickerInterface) CrontabInterface {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	for _, ti := range ts {
+		name := ti.Name()
+		if _, ok := o.tickers[name]; ok {
+			delete(o.tickers, name)
+		}
+	}
+	return o
+}
+
 // Start crontab.
 func (o *crontab) Start() error {
 	if len(o.tickers) == 0 {
-		return errors.New("no ticker found")
+		return ErrNoTicker
 	}
 	o.listen()
 	return nil
@@ -50,7 +74,7 @@ func (o *crontab) dispatcher() {
 func (o *crontab) listen() {
 	go func() {
 		defer o.listen()
-		log.Debugf("[crontab] crontab listening.")
+		log.Debugf("[crontab] listening.")
 		for range time.NewTicker(time.Second).C {
 			go o.dispatcher()
 		}
@@ -59,6 +83,7 @@ func (o *crontab) listen() {
 
 // New crontab instance.
 func NewCrontab() CrontabInterface {
+	log.Debugf("[crontab] new crontab.")
 	o := &crontab{}
 	o.mu = new(sync.RWMutex)
 	o.tickers = make(map[string]TickerInterface)

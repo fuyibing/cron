@@ -1,4 +1,4 @@
 # config from github.com/fuyibing/log
 adapter: term
-level: info
+level: debug
 time: "15:04:05"

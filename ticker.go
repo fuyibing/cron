@@ -4,7 +4,6 @@
 package cron
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -12,6 +11,21 @@ import (
 
 	"github.com/fuyibing/log/v2"
 )
+
+// Ticker interface.
+type TickerInterface interface {
+	// Return ticker name.
+	Name() string
+
+	// Run ticker.
+	Run(time.Time)
+
+	// Return ticker strategy2.
+	Strategy() StrategyInterface
+
+	// Single node only.
+	SingleNode(bool) TickerInterface
+}
 
 // Ticker struct.
 type ticker struct {
@@ -38,26 +52,31 @@ func (o *ticker) Run(t time.Time) {
 	}
 	o.running = true
 	o.mu.Unlock()
+	defer func() {
+		o.mu.Lock()
+		o.running = false
+		o.mu.Unlock()
+	}()
 	// 2. run response.
 	ctx := log.NewContext()
 	log.Debugfc(ctx, "[ticker=%s] begin ticker.", o.name)
-
-	// 3. strategy check
+	if o.handler == nil {
+		log.Errorfc(ctx, "[ticker=%s] handler not defined.", o.name)
+		return
+	}
+	// 3. strategy2 check
 	var err error
 	if err = o.strategy.Err(); err != nil {
-		log.Errorfc(ctx, "[ticker=%s] strategy error: %v.", o.name, err)
+		log.Errorfc(ctx, "[ticker=%s] strategy2 error: %v.", o.name, err)
 		return
 	}
 	if err = o.strategy.Validate(t); err != nil {
 		log.Debugfc(ctx, "[ticker=%s] ticker ignored: %v.", o.name, err)
 		return
 	}
-	// 4.
+	// 4. completed manager.
 	defer func() {
 		// duration and status.
-		o.mu.Lock()
-		o.running = false
-		o.mu.Unlock()
 		d := time.Now().Sub(t).Seconds()
 		// result check.
 		if r := recover(); r != nil {
@@ -78,7 +97,7 @@ func (o *ticker) Run(t time.Time) {
 			return
 		}
 		if receipt == "" {
-			err = errors.New("locked by other process")
+			err = ErrLockFailed
 			return
 		}
 		defer func() {
@@ -86,7 +105,6 @@ func (o *ticker) Run(t time.Time) {
 		}()
 	}
 	// 6. run processing.
-	o.strategy.Refresh(t)
 	err = o.handler(ctx, o)
 }
 
@@ -102,7 +120,7 @@ func (o *ticker) SingleNode(singleNode bool) TickerInterface {
 	return o
 }
 
-// Return ticker strategy.
+// Return ticker strategy2.
 func (o *ticker) Strategy() StrategyInterface {
 	return o.strategy
 }
