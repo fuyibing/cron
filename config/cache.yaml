@@ -1,0 +1,14 @@
+# config from github.com/fuyibing/cache
+addr: "127.0.0.1:6379"
+database: 0
+idle-timeout: 30
+keep-alive: 60
+max-active: 2
+max-idle: 2
+max-lifetime: 60
+network: "tcp"
+password: ""
+timeout: 0
+read-timeout: 0
+wait: true
+write-timeout: 0

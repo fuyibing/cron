@@ -4,44 +4,23 @@
 package cron
 
 import (
-	"context"
 	"errors"
-	"fmt"
+	"sync"
 	"time"
 
-	"github.com/fuyibing/lock"
+	"github.com/fuyibing/cache"
 
 	"github.com/fuyibing/log/v2"
 )
 
-// Ticker interface.
-type Ticker interface {
-	Name() string
-	Run(time.Time) error
-	SingleNode(bool) Ticker
-	Validate(time.Time) (bool, error)
-}
-
-// Ticker handler.
-type TickerHandler func(context.Context, Ticker) error
-
 // Ticker struct.
 type ticker struct {
-	handler    TickerHandler
+	handler    Handler
+	mu         *sync.RWMutex
 	name       string
-	strategy   Strategy
+	running    bool
 	singleNode bool
-}
-
-// Create ticker instance.
-//   t1 := cron.NewTicker("t1", "3s", f1)
-//   t2 := cron.NewTicker("t2", "18:00", f2)
-//   t3 := cron.NewTicker("t3", "00:00:00,03:30:30", f3)
-//   t4 := cron.NewTicker("t4", "* * 1-3,11,16,21 * *", f4)
-func NewTicker(name, format string, handler TickerHandler) Ticker {
-	o := &ticker{name: name, handler: handler}
-	o.strategy = NewStrategy(format)
-	return o
+	strategy   StrategyInterface
 }
 
 // Return ticker name.
@@ -50,63 +29,89 @@ func (o *ticker) Name() string {
 }
 
 // Run ticker.
-func (o *ticker) Run(t time.Time) (err error) {
-	var ctx = log.NewContext()
-	// begin
-	log.Infofc(ctx, "[cron][ticker=%s] begin run.", o.name)
-	t1 := time.Now()
+func (o *ticker) Run(t time.Time) {
+	// 1. return if status is running.
+	o.mu.Lock()
+	if o.running {
+		o.mu.Unlock()
+		return
+	}
+	o.running = true
+	o.mu.Unlock()
+	// 2. run response.
+	ctx := log.NewContext()
+	log.Debugfc(ctx, "[ticker=%s] begin ticker.", o.name)
+
+	// 3. strategy check
+	var err error
+	if err = o.strategy.Err(); err != nil {
+		log.Errorfc(ctx, "[ticker=%s] strategy error: %v.", o.name, err)
+		return
+	}
+	if err = o.strategy.Validate(t); err != nil {
+		log.Debugfc(ctx, "[ticker=%s] ticker ignored: %v.", o.name, err)
+		return
+	}
+	// 4.
 	defer func() {
-		d1 := time.Now().Sub(t1).Seconds()
-		// catch panic.
+		// duration and status.
+		o.mu.Lock()
+		o.running = false
+		o.mu.Unlock()
+		d := time.Now().Sub(t).Seconds()
+		// result check.
 		if r := recover(); r != nil {
-			err = errors.New(fmt.Sprintf("%v", r))
-			log.Errorfc(ctx, "[cron][ticker=%s][d=%f] %s.", o.name, d1, err)
+			log.Errorfc(ctx, "[ticker=%s][d=%f] fatal error: %v.", o.name, d, r)
 		} else {
 			if err != nil {
-				log.Warnfc(ctx, "[cron][ticker=%s][d=%f] %s.", o.name, d1, err)
+				log.Errorfc(ctx, "[ticker=%s][d=%f] ticker fail: %v.", o.name, d, err)
 			} else {
-				log.Infofc(ctx, "[cron][ticker=%s][d=%f] run completed.", o.name, d1)
+				log.Infofc(ctx, "[ticker=%s][d=%f] ticker completed.", o.name, d)
 			}
 		}
 	}()
-	// Strategy error.
-	if err = o.strategy.Err(); err != nil {
-		return
-	}
-	// No handler.
-	if o.handler == nil {
-		err = errors.New("handler not specified")
-		return
-	}
-	// Signal node.
+	// 5. single node.
 	if o.singleNode {
-		l := lock.New(o.name)
-		s1, e1 := l.Set(ctx)
-		if e1 != nil {
-			err = e1
+		receipt := ""
+		lock := cache.NewLock(o.name)
+		if receipt, err = lock.Set(ctx); err != nil {
 			return
 		}
-		if !s1 {
-			err = errors.New("can not get redis lock")
+		if receipt == "" {
+			err = errors.New("locked by other process")
 			return
 		}
 		defer func() {
-			_, _ = l.Unset(ctx)
+			_ = lock.Unset(ctx, receipt)
 		}()
 	}
-	// Call handler.
-	o.strategy.Update(t)
+	// 6. run processing.
+	o.strategy.Refresh(t)
 	err = o.handler(ctx, o)
-	return
 }
 
-// Use single node.
-func (o *ticker) SingleNode(singleNode bool) Ticker {
+// Set ticker handler.
+func (o *ticker) SetHandler(handler Handler) TickerInterface {
+	o.handler = handler
+	return o
+}
+
+// Set single node running.
+func (o *ticker) SingleNode(singleNode bool) TickerInterface {
 	o.singleNode = singleNode
 	return o
 }
 
-// Validate strategy.
-func (o *ticker) Validate(t time.Time) (bool, error) {
-	return o.strategy.Validate(t)
+// Return ticker strategy.
+func (o *ticker) Strategy() StrategyInterface {
+	return o.strategy
+}
+
+// New ticker instance.
+func NewTicker(name, format string, handler Handler) TickerInterface {
+	log.Debugf("[ticker=%s] new ticker.", name)
+	o := &ticker{mu: new(sync.RWMutex), name: name, running: false, singleNode: false}
+	o.strategy = NewStrategy(format)
+	o.SetHandler(handler)
+	return o
 }

@@ -1,5 +1,5 @@
 // author: wsfuyibing <websearch@163.com>
-// date: 2021-02-14
+// date: 2021-02-24
 
 package tests
 
@@ -8,39 +8,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fuyibing/log"
+	"github.com/fuyibing/log/v2"
 
-	"github.com/fuyibing/cron"
+	"github.com/fuyibing/cron/v2"
 )
 
-func init() {
-	log.Config.TimeFormat = "15:04:05.999999"
-	log.Logger.SetAdapter(log.AdapterTerm)
-	log.Logger.SetLevel(log.LevelDebug)
-}
-
 func TestTicker(t *testing.T) {
+	x := cron.NewTicker("t1", "5s", handler)
+	x.SingleNode(true)
+	log.Infof("name: %s.", x.Name())
+	log.Infof("strategy: %s.", x.Strategy().Format())
 
-	ctx := log.NewContext()
-	name := "test-1"
-	log.Infofc(ctx, "[ticker=%s] test 1 ticker begin.", name)
-
-	t1 := cron.NewTicker(name, "3s", ticker1)
-	t1.SingleNode(true)
-
-	if err := t1.Run(time.Now()); err != nil {
-		t.Errorf("Ticker run error: %v.", err)
-		return
-	}
-
-	t.Logf("Ticker run end.")
-
-	time.Sleep(time.Second)
+	x.Run(time.Now())
 }
 
-func ticker1(ctx context.Context, ticker cron.Ticker) error {
-	// return errors.New("test 1 ticker error")
-	log.Debugfc(ctx, "[ticker=%s] run use handler.", ticker.Name())
+func handler(ctx context.Context, ticker cron.TickerInterface) error {
 
+	for i := 0; i < 10; i++ {
+		log.Infofc(ctx, "[ticker=%s] ticker callback.", ticker.Name())
+		time.Sleep(time.Second)
+	}
 	return nil
 }

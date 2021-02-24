@@ -1,8 +1,8 @@
-module github.com/fuyibing/cron
+module github.com/fuyibing/cron/v2
 
 go 1.13
 
 require (
-	github.com/fuyibing/lock v0.0.0-20210214074253-ca4086867907
-	github.com/fuyibing/log/v2 v2
+	github.com/fuyibing/cache v1.0.0
+	github.com/fuyibing/log/v2 v2.0.3
 )

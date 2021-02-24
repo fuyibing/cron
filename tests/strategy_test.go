@@ -1,64 +1,19 @@
 // author: wsfuyibing <websearch@163.com>
-// date: 2021-02-14
+// date: 2021-02-24
 
 package tests
 
 import (
 	"testing"
-	"time"
 
-	"github.com/fuyibing/cron"
+	"github.com/fuyibing/log/v2"
+
+	"github.com/fuyibing/cron/v2"
 )
 
 func TestStrategy(t *testing.T) {
-	t.Logf("---- strategy standard ----")
-
-	s := cron.NewStrategy("35 17 * * *")
-	t.Logf("format: %s.", s.Format())
-	t.Logf(" weeks: %v.", s.GetWeeks())
-	t.Logf("months: %v.", s.GetMonths())
-	t.Logf("  days: %v.", s.GetDays())
-	t.Logf(" times: %v.", s.GetTimes())
-
-	for i := 0; i < 90; i++ {
-		m := time.Now()
-		b, _ := s.Validate(m)
-		if b {
-			s.Update(m)
-		}
-		t.Logf("[%s]     validate: %v.", m.Format("15:04:05"), b)
-		time.Sleep(time.Second)
-	}
-
-}
-
-func TestStrategyTimeline(t *testing.T) {
-	t.Logf("---- strategy timeline ----")
-	s := cron.NewStrategy("20:10,17:52:55")
-	t.Logf("strategy:format: %s.", s.Format())
-	t.Logf("strategy: times: %v.", s.GetTimes())
-	for i := 0; i < 30; i++ {
-		m := time.Now()
-		b, _ := s.Validate(m)
-		if b {
-			s.Update(m)
-		}
-		t.Logf("[%s]     validate: %v.", m.Format("15:04:05"), b)
-		time.Sleep(time.Second)
-	}
-}
-
-func TestStrategyRecycle(t *testing.T) {
-	t.Logf("---- strategy recycle ----")
-	s := cron.NewStrategy("2s")
-	for i := 0; i < 10; i++ {
-		m := time.Now()
-		b, _ := s.Validate(m)
-		if b {
-			s.Update(m)
-		}
-		t.Logf("[%s]     validate: %v.", m.Format("15:04:05.999999"), b)
-		time.Sleep(time.Second)
-	}
-	t.Logf("strategy:format: %s.", s.Format())
+	s := cron.NewStrategy("* * * * *")
+	// s := cron.NewStrategy("5x")
+	log.Infof("format: %s.", s.Format())
+	log.Infof(" error: %v.", s.Err())
 }

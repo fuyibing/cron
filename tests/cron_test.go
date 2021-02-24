@@ -1,35 +1,20 @@
 // author: wsfuyibing <websearch@163.com>
-// date: 2021-02-14
+// date: 2021-02-24
 
 package tests
 
 import (
-	"context"
 	"testing"
 
-	"github.com/fuyibing/cron"
+	"github.com/fuyibing/log/v2"
+
+	"github.com/fuyibing/cron/v2"
 )
 
-func TestCron(t *testing.T) {
-	c := cron.Cron
-	c.Add(
-		cron.NewTicker("t1", "3s", f1),
-		cron.NewTicker("t2", "19:00:00", f2),
-	)
-
-	if err := c.Start(); err != nil {
-		t.Errorf("start error: %v.", err)
-		return
+func TestCrontab(t *testing.T) {
+	x := cron.NewCrontab()
+	x.AddTicker(cron.NewTicker("t1", "5s", nil), cron.NewTicker("t2", "1m", nil))
+	if err := x.Start(); err != nil {
+		log.Errorf("error: %s.", err)
 	}
-
-	for{}
-
-}
-
-func f1(ctx context.Context, ticker cron.Ticker) error {
-	return nil
-}
-
-func f2(ctx context.Context, ticker cron.Ticker) error {
-	return nil
 }

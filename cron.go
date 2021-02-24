@@ -7,64 +7,60 @@ import (
 	"errors"
 	"sync"
 	"time"
-)
 
-// Crontab interface.
-type Crontab interface {
-	Add(...Ticker) Crontab
-	Start() error
-	initialize()
-}
+	"github.com/fuyibing/log/v2"
+)
 
 // Crontab struct.
 type crontab struct {
 	mu      *sync.RWMutex
-	tickers []Ticker
+	tickers map[string]TickerInterface
 }
 
 // Add ticker.
-func (o *crontab) Add(tickers ...Ticker) Crontab {
+func (o *crontab) AddTicker(ts ...TickerInterface) CrontabInterface {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	o.tickers = append(o.tickers, tickers...)
+	for _, ti := range ts {
+		o.tickers[ti.Name()] = ti
+	}
 	return o
 }
 
 // Start crontab.
 func (o *crontab) Start() error {
-	// empty ticker.
 	if len(o.tickers) == 0 {
 		return errors.New("no ticker found")
 	}
-	// listen channel.
 	o.listen()
 	return nil
 }
 
-// Initialize crontab.
-func (o *crontab) initialize() {
-	o.mu = new(sync.RWMutex)
-	o.tickers = make([]Ticker, 0)
+// Dispatch ticker.
+func (o *crontab) dispatcher() {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	t := time.Now()
+	for _, x := range o.tickers {
+		go x.Run(t)
+	}
 }
 
-// Listen channel.
+// Listen second.
 func (o *crontab) listen() {
 	go func() {
 		defer o.listen()
+		log.Debugf("[crontab] crontab listening.")
 		for range time.NewTicker(time.Second).C {
-			go o.loop()
+			go o.dispatcher()
 		}
 	}()
 }
 
-// Loop tickers.
-func (o *crontab) loop() {
-	tm := time.Now()
-	for _, tick := range o.tickers {
-		go func(ticker Ticker) {
-			if ok, _ := ticker.Validate(tm); ok {
-				_ = ticker.Run(tm)
-			}
-		}(tick)
-	}
+// New crontab instance.
+func NewCrontab() CrontabInterface {
+	o := &crontab{}
+	o.mu = new(sync.RWMutex)
+	o.tickers = make(map[string]TickerInterface)
+	return o
 }
