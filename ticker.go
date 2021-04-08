@@ -59,7 +59,6 @@ func (o *ticker) Run(t time.Time) {
 	}()
 	// 2. run response.
 	ctx := log.NewContext()
-	log.Debugfc(ctx, "[ticker=%s] begin ticker.", o.name)
 	if o.handler == nil {
 		log.Errorfc(ctx, "[ticker=%s] handler not defined.", o.name)
 		return
@@ -71,7 +70,6 @@ func (o *ticker) Run(t time.Time) {
 		return
 	}
 	if err = o.strategy.Validate(t); err != nil {
-		log.Debugfc(ctx, "[ticker=%s] ticker ignored: %v.", o.name, err)
 		return
 	}
 	// 4. completed manager.
@@ -120,7 +118,7 @@ func (o *ticker) SingleNode(singleNode bool) TickerInterface {
 	return o
 }
 
-// Return ticker strategy2.
+// Return ticker strategy.
 func (o *ticker) Strategy() StrategyInterface {
 	return o.strategy
 }
